@@ -4,12 +4,14 @@
   "description": "",
   "license": "ISC",
   "author": "",
-  "type": "commonjs",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon rag.js"
   },
   "dependencies": {
-    "nodemon": "^3.1.14"
+    "@langchain/community": "^0.3.42",
+    "nodemon": "^3.1.14",
+    "pdf-parse": "^1.1.1"
   }
 }
