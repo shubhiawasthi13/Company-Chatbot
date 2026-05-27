@@ -8,8 +8,10 @@ import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddin
 
 import { Pinecone } from "@pinecone-database/pinecone";
 
+import { PineconeStore } from "@langchain/pinecone";
+
 // Embedding Model
-const embeddings = new HuggingFaceTransformersEmbeddings({
+export const embeddings = new HuggingFaceTransformersEmbeddings({
   model: "Xenova/all-MiniLM-L6-v2",
 });
 
@@ -17,6 +19,21 @@ const embeddings = new HuggingFaceTransformersEmbeddings({
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY,
 });
+
+// Pinecone Index
+const pineconeIndex = pinecone.Index(
+  process.env.PINECONE_INDEX
+);
+
+// Export Vector Store
+export const vectorStore =
+  await PineconeStore.fromExistingIndex(
+    embeddings,
+    {
+      pineconeIndex,
+      maxConcurrency: 5,
+    }
+  );
 
 export async function indexTheDocument(filePath) {
   try {
@@ -37,44 +54,23 @@ export async function indexTheDocument(filePath) {
       chunkOverlap: 100,
     });
 
-    const splitDocs = await textSplitter.createDocuments([docs[0].pageContent]);
+    const splitDocs =
+      await textSplitter.createDocuments([
+        docs[0].pageContent,
+      ]);
 
     console.log("Chunks:", splitDocs.length);
 
-    console.log("Creating embeddings...");
-
-    // Generate embeddings
-    const vectors = await embeddings.embedDocuments(
-      splitDocs.map((doc) => doc.pageContent),
+    console.log(
+      "Adding documents to Vector Store..."
     );
 
-    console.log("Vectors Created:", vectors.length);
+    // Store directly in Pinecone
+    await vectorStore.addDocuments(splitDocs);
 
-    console.log("Vector Dimension:", vectors[0]?.length);
-
-    console.log("Connecting to Pinecone...");
-
-    const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX);
-
-    console.log("Preparing records...");
-
-    const records = splitDocs.map((doc, index) => ({
-      id: `doc-${index}`,
-
-      values: Array.from(vectors[index]),
-
-      metadata: {
-        text: doc.pageContent,
-      },
-    }));
-
-    console.log("Total Records:", records.length);
-
-    console.log("Uploading to Pinecone...");
-
-    await pineconeIndex.upsert(records);
-
-    console.log("Documents stored in Pinecone successfully");
+    console.log(
+      "Documents stored in Pinecone successfully"
+    );
   } catch (error) {
     console.error("Error:", error);
   }
